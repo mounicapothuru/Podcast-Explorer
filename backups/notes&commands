@@ -1,0 +1,69 @@
+spark-submit --packages "org.mongodb.spark:mongo-spark-connector_2.12:3.0.0" segment_ner.py
+
+--------------------------------------------------------------------------------------------------------------------------
+pip3 install transformers==2.8.0
+pip3 install torch==1.4.0
+
+pip3 install spacy
+python3 -m spacy download en_core_web_sm
+
+https://pypi.org/project/bert-extractive-summarizer/
+
+python3 -m pip install elasticsearch
+
+export collection :
+mongoexport --db podcast --collection segment --out segment.json
+
+delete document:
+db.segment.deleteOne({"video_id" : "LAyZ8IYfGxQ"})
+
+create index:
+db.segment.createIndex({ "video_id" : 1 })
+
+list indices :
+curl http://localhost:9200/_aliases?pretty=true
+
+query index :
+curl http://localhost:9200/podcast_segment/_search?q=*
+
+delete index :
+curl -XDELETE localhost:9200/podcast_segment
+
+delete document :
+curl -X POST "localhost:9200/podcast_segment/_delete_by_query?pretty" -H 'Content-Type: application/json' -d'
+{
+  "query": {
+    "match": {
+      "video_id": "o2nG7-eXxko"
+    }
+  }
+}'
+
+--------------------------------------------------------------------------------------------------------------------------
+
+python3 data_ingestion_layer/extract/data_downloader.py
+
+python3 data_ingestion_layer/transform/data_segmentation_by_subtopics.py
+
+cd data_ingestion_layer/transform/speaker-diarisation
+mvn clean install
+cd ../../..
+java -jar data_ingestion_layer/transform/speaker-diarisation/target/speaker-diarisation-0.0.1-jar-with-dependencies.jar "/home/user/MS DATA SCIENCE/ACADEMIC/Fall 2020/Massive Data Storage and Retrieval/Project/Codebase"
+
+python3 data_ingestion_layer/transform/data_segmentation_by_speakers.py
+
+python3 data_ingestion_layer/load/mongo_raw_data_load.py
+
+python3 data_ingestion_layer/load/es_index_segments.py
+
+python3 data_ingestion_layer/load/es_index_metadata_and_speakers.py
+
+spark-submit --packages "org.mongodb.spark:mongo-spark-connector_2.12:3.0.0" analytical_layer/setup_knowledge_graph.py
+
+
+
+LOAD CSV FROM 'http://localhost:11001/project-fc48526a-ddd8-4329-be42-f77ad727ffbb/edges.csv' AS line FIELDTERMINATOR ','
+CREATE (:Edge { source: line[1], target: line[2], type: line[3], weight: toInteger(line[4]), edgeId: line[5]})
+
+LOAD CSV FROM 'http://localhost:11001/project-fc48526a-ddd8-4329-be42-f77ad727ffbb/nodes.csv' AS line FIELDTERMINATOR ','
+CREATE (:Node { nodeId: line[1], label: line[2], color: line[3]})
